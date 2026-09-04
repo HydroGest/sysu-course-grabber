@@ -1,0 +1,56 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and release
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Python tests
+        run: python tests/run_tests.py
+
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+          Copy-Item -Recurse -Force .\dist\* ..\webui\
+
+      - name: Create source zip
+        shell: pwsh
+        run: |
+          $target = ".\sysu-course-grabber.zip"
+          Remove-Item -LiteralPath $target -ErrorAction SilentlyContinue
+          Get-ChildItem -Force | Where-Object {
+            $_.Name -notin @('frontend', '.git', '.github')
+          } | Compress-Archive -DestinationPath $target
+          Compress-Archive -Path ".\frontend\package.json", ".\frontend\package-lock.json", ".\frontend\vite.config.js", ".\frontend\index.html", ".\frontend\src" -DestinationPath $target -Update
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${{ github.ref_name }}" .\sysu-course-grabber.zip --generate-notes
+

@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { width: 280px; margin: 0; font: 13px/1.5 "Microsoft YaHei UI", sans-serif; color: #17231f; }
+    .wrap { padding: 14px; }
+    h1 { margin: 0 0 10px; font-size: 15px; }
+    .row { display: flex; justify-content: space-between; align-items: center; margin: 7px 0; }
+    .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+    .ok { background: #0d6b4a; }
+    .bad { background: #b83b34; }
+    button {
+      width: 100%; margin-top: 8px; border: 1px solid #dce4e2; background: #fff;
+      border-radius: 6px; padding: 8px 10px; cursor: pointer;
+    }
+    .primary { background: #0d6b4a; border-color: #0d6b4a; color: #fff; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>SYSU 抢课同步</h1>
+    <div class="row"><span id="serverState">服务检测中</span></div>
+    <div class="row"><span id="cookieState">Cookie 检测中</span></div>
+    <button class="primary" id="syncBtn">立即同步</button>
+    <button id="openBtn">打开抢课助手</button>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
+

@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+.venv/
+dev-data/
+.pytest_cache/
+frontend/node_modules/
+.idea/
+.vscode/
+*.log
+build/
+dist/
+*.spec
+*.db
+cookies.txt
