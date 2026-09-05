@@ -69,7 +69,12 @@ def main():
     if not args.no_open and args.host in ("127.0.0.1", "::1"):
         threading.Timer(0.6, lambda: webbrowser.open(f"http://127.0.0.1:{args.port}")).start()
 
-    serve_thread = threading.Thread(target=run_server, args=(httpd,), daemon=True)
+    def serve_and_exit():
+        run_server(httpd)
+        # API 关闭或托盘退出后，确保所有隐藏进程一起结束。
+        os._exit(0)
+
+    serve_thread = threading.Thread(target=serve_and_exit, daemon=True)
     serve_thread.start()
     if tray_icon is not None:
         tray_icon.run()
