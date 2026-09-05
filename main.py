@@ -17,6 +17,38 @@ def default_data_dir():
     return str(Path.home() / ".sycu-grabber")
 
 
+def create_tray_icon(port, httpd):
+    """Create the tray icon or return None when pystray is unavailable."""
+    try:
+        import pystray
+        from PIL import Image, ImageDraw
+    except Exception:
+        return None
+
+    image = Image.new("RGB", (64, 64), (11, 110, 79))
+    draw = ImageDraw.Draw(image)
+    draw.rectangle((18, 12, 46, 52), fill="white")
+    draw.text((30, 27), "S", fill=(11, 110, 79))
+
+    def open_panel(icon, item):
+        webbrowser.open(f"http://127.0.0.1:{port}")
+
+    def quit_app(icon, item):
+        icon.stop()
+        threading.Thread(target=httpd.shutdown, daemon=True).start()
+
+    icon = pystray.Icon(
+        "SYSU-Course-Grabber",
+        image,
+        "SYSU 抢课助手",
+        pystray.Menu(
+            pystray.MenuItem("打开控制台", open_panel, default=True),
+            pystray.MenuItem("退出", quit_app),
+        ),
+    )
+    return icon
+
+
 def main():
     ap = argparse.ArgumentParser(description="SYSU 抢课助手")
     ap.add_argument("--host", default="127.0.0.1")
@@ -30,9 +62,19 @@ def main():
     print(f"控制台: http://{args.host}:{args.port}")
     print(f"数据目录: {args.data_dir}")
 
+    tray_icon = create_tray_icon(args.port, httpd)
+    if tray_icon is None:
+        print("未安装 pystray/Pillow，不显示系统托盘")
+
     if not args.no_open and args.host in ("127.0.0.1", "::1"):
         threading.Timer(0.6, lambda: webbrowser.open(f"http://127.0.0.1:{args.port}")).start()
-    run_server(httpd)
+
+    serve_thread = threading.Thread(target=run_server, args=(httpd,), daemon=True)
+    serve_thread.start()
+    if tray_icon is not None:
+        tray_icon.run()
+    else:
+        serve_thread.join()
 
 
 if __name__ == "__main__":

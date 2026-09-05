@@ -298,9 +298,13 @@ class BrowserImporter:
                 if cookie_hash != self.last_cookie_hash:
                     self.last_cookie_hash = cookie_hash
                     self.status = "captured"
-                    self.message = "已捕获登录态，正在保存"
+                    self.message = "正在校验登录状态"
                     try:
-                        self.on_cookie(snapshot["cookie"])
+                        ok = self.on_cookie(snapshot["cookie"])
+                    except Exception as e:
+                        ok = False
+                        self.last_error = str(e)
+                    if ok:
                         self.status = "ready"
                         self.message = "登录成功，Cookie 已保存"
                         if self.process is not None and self.process.poll() is None:
@@ -309,11 +313,9 @@ class BrowserImporter:
                             except Exception:
                                 pass
                         return
-                    except Exception as e:
-                        self.last_error = str(e)
-                        self.status = "error"
-                        self.message = "Cookie 保存失败"
-                        return
+                    self.status = "waiting"
+                    self.message = "登录验证未通过，请在浏览器中完成登录"
+                    self.last_error = "教务接口未通过该 Cookie 校验"
             time.sleep(1.5)
 
 

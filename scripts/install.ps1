@@ -63,6 +63,12 @@ New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
 Copy-Item -Path (Join-Path $Source "*") -Destination $InstallDir -Recurse -Force
 New-Item -ItemType Directory -Path $DataDir -Force | Out-Null
 
+Write-Host "Installing tray support..."
+& $Python -m pip install --user --index-url https://pypi.org/simple --disable-pip-version-check -q -r (Join-Path $InstallDir "requirements.txt") 2>&1 | Out-Null
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Warning: pystray/Pillow could not be installed. The app will run without a tray icon."
+}
+
 $MainPy = Join-Path $InstallDir "main.py"
 $QuotedMain = '"' + $MainPy + '"'
 $QuotedPythonW = '"' + $PythonW + '"'

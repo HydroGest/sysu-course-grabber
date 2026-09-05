@@ -86,7 +86,7 @@ class App:
         self.engine = GrabEngine(self.store, self.api)
         self.engine.start()
         self.engine.refresh_stage()
-        self.browser = BrowserImporter(self.data_dir, self.set_cookie)
+        self.browser = BrowserImporter(self.data_dir, self.accept_browser_cookie)
 
     def set_cookie(self, cookie):
         self.store.save_cookie(cookie)
@@ -94,6 +94,26 @@ class App:
         self.store.append_log("session", "info", "Cookie 已更新")
         threading.Thread(target=lambda: self.engine.refresh_stage(force=True), daemon=True).start()
         self.engine.wake()
+
+    def accept_browser_cookie(self, cookie):
+        """Only import a browser login if the教务接口 can actually verify it."""
+        old_cookie = self.api.cookie
+        self.api.cookie = cookie
+        info = {"state": "error"}
+        try:
+            info = self.engine.refresh_stage(force=True)
+        except Exception as e:
+            self.api.cookie = old_cookie
+            self.store.append_log("session", "warn", f"浏览器登录校验失败: {e}")
+            return False
+        if info.get("state") != "ok":
+            self.api.cookie = old_cookie
+            self.store.append_log("session", "warn", "浏览器登录校验未通过")
+            return False
+        self.store.save_cookie(cookie)
+        self.store.append_log("session", "info", "浏览器登录已通过教务接口校验")
+        self.engine.wake()
+        return True
 
     def target_payload(self, data):
         name = str(data.get("name") or "").strip()

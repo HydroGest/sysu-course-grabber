@@ -16,10 +16,12 @@
       <v-chip
         size="small"
         variant="flat"
-        :color="cookieOk ? 'success' : 'warning'"
+        :color="cookieColor"
         class="mr-2"
       >
-        <v-icon start size="16">{{ cookieOk ? 'mdi-check-circle' : 'mdi-login' }}</v-icon>
+        <v-icon start size="16">
+          {{ cookieText === '登录已失效' ? 'mdi-alert-circle' : cookieOk ? 'mdi-check-circle' : 'mdi-login' }}
+        </v-icon>
         {{ cookieText }}
       </v-chip>
       <v-chip
@@ -105,7 +107,7 @@
                 <v-card>
                   <v-card-text>
                     <div class="text-overline text-medium-emphasis">登录状态</div>
-                    <div class="text-h6 font-weight-bold mt-1" :class="cookieOk ? 'text-success' : 'text-warning'">
+                    <div class="text-h6 font-weight-bold mt-1" :class="cookieText === '已登录' ? 'text-success' : cookieText === '登录已失效' ? 'text-error' : 'text-warning'">
                       {{ cookieText }}
                     </div>
                   </v-card-text>
@@ -584,8 +586,8 @@
         <v-card-title>登录设置</v-card-title>
         <v-card-text>
           <div class="d-flex align-center mb-4">
-            <v-chip :color="cookieOk ? 'success' : 'warning'" class="mr-3">
-              {{ cookieOk ? '已登录' : '等待登录' }}
+            <v-chip :color="cookieColor" class="mr-3">
+              {{ cookieText }}
             </v-chip>
             <v-chip :color="loginStatusColor" class="mr-3">{{ loginStatusText }}</v-chip>
           </div>
@@ -739,6 +741,7 @@ export default {
       targetScheduleAt: "",
       targetScheduleId: null,
       guideOpen: false,
+      autoGuideClose: false,
       snackbar: false,
       snackbarText: "",
       snackbarColor: "success",
@@ -746,10 +749,18 @@ export default {
   },
   computed: {
     cookieOk() {
-      return Boolean(this.health && this.health.cookie);
+      return Boolean(this.health?.cookie && this.health.stage?.state === "ok");
     },
     cookieText() {
-      return this.cookieOk ? "已登录" : "等待登录";
+      const stage = this.health?.stage;
+      if (this.health?.cookie && stage?.state === "ok") return "已登录";
+      if (this.health?.cookie && stage?.state === "error") return "登录已失效";
+      return "等待登录";
+    },
+    cookieColor() {
+      if (this.cookieText === "已登录") return "success";
+      if (this.cookieText === "登录已失效") return "error";
+      return "warning";
     },
     engineText() {
       return this.health && this.health.engine ? "引擎运行中" : "引擎已停止";
@@ -760,6 +771,7 @@ export default {
         return [stage.stage_name, stage.semester].filter(Boolean).join(" · ");
       }
       if (stage.state === "no_cookie") return "等待登录";
+      if (stage.state === "error") return "登录已失效";
       return "阶段未知";
     },
     runningCount() {
@@ -843,7 +855,8 @@ export default {
       } catch (e) {
         this.health = null;
       }
-      if (this.login.status === "ready" && this.guideOpen) {
+      if (this.login.status === "ready" && this.autoGuideClose && this.guideOpen) {
+        this.autoGuideClose = false;
         this.guideOpen = false;
         this.switchView("search");
       }
@@ -1159,12 +1172,14 @@ export default {
     },
     async openGuide() {
       this.guideOpen = true;
+      this.autoGuideClose = false;
       try {
         const data = await this.api("/api/context");
         this.extensionDir = data.extension_dir;
       } catch (_) { /* ignore */ }
     },
     async startBrowserLogin() {
+      this.autoGuideClose = true;
       try {
         this.login = await this.api("/api/session/login", { method: "POST" });
       } catch (e) {
@@ -1172,6 +1187,7 @@ export default {
       }
     },
     async cancelBrowserLogin() {
+      this.autoGuideClose = false;
       try {
         await this.api("/api/session/cancel", { method: "POST" });
         this.login = { status: "idle", message: "", error: "" };

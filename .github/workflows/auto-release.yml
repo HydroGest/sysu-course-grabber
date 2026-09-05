@@ -1,0 +1,38 @@
+name: Auto release
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  auto-tag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Read version
+        id: version
+        run: |
+          echo "version=$(python -c "import sycu_grabber; print(sycu_grabber.__version__)")" >> "$GITHUB_OUTPUT"
+
+      - name: Create tag if missing
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          if gh api "repos/${{ github.repository }}/git/ref/tags/v${VERSION}" >/dev/null 2>&1; then
+            echo "Tag v${VERSION} already exists"
+          else
+            gh api "repos/${{ github.repository }}/git/refs" -f ref="refs/tags/v${VERSION}" -f sha="${{ github.sha }}"
+            echo "Created tag v${VERSION}"
+          fi
