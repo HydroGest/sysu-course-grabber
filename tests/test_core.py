@@ -9,6 +9,7 @@ sys.path.insert(0, str(ROOT))
 
 from sycu_grabber.api_client import SysuApi
 from sycu_grabber.engine import GrabEngine, start_target
+from sycu_grabber.schedule import detect_conflicts, parse_course_sessions
 from sycu_grabber.store import Store
 
 
@@ -139,6 +140,31 @@ def test_engine_maps_store_fields_to_api():
     assert converted["courseNum"] == "MA111"
     assert converted["selectedType"] == "2"
     assert converted["selectedCate"] == "30"
+
+
+def test_parse_course_schedule():
+    sessions = parse_course_sessions(
+        "高等数学一",
+        "MA189",
+        "王远世;1-8每周星期一第3节-第4节;逸102",
+    )
+    assert len(sessions) == 1
+    session = sessions[0]
+    assert session.weekday == 1
+    assert session.start_section == 3
+    assert session.end_section == 4
+    assert session.weeks == frozenset(range(1, 9))
+    assert "周一" in session.week_text or session.section_text == "第3-4节"
+
+
+def test_detect_schedule_conflict():
+    a = parse_course_sessions("课A", "A1", "1-8每周星期二第3节-第4节;教室1")
+    b = parse_course_sessions("课B", "B1", "1-12每周星期二第4节-第5节;教室2")
+    c = parse_course_sessions("课C", "C1", "9-16每周星期二第3节-第4节;教室3")
+    conflicts = detect_conflicts(a + b)
+    assert len(conflicts) == 1
+    assert "课A" in conflicts[0]["text"] and "课B" in conflicts[0]["text"]
+    assert not detect_conflicts(a + c)
 
 
 def main():

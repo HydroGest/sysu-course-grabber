@@ -13,6 +13,7 @@ from sycu_grabber import __version__
 from sycu_grabber.api_client import SysuApi
 from sycu_grabber.browser_importer import BrowserImporter
 from sycu_grabber.engine import GrabEngine, start_target
+from sycu_grabber.schedule import build_schedule, candidate_conflicts, sessions_from_selected
 from sycu_grabber.store import Store
 
 
@@ -259,6 +260,19 @@ def make_handler(ctx, host):
                         keyword=(query.get("q") or [""])[0],
                         scope=(query.get("type") or ["auto"])[0],
                     )
+                    if rows:
+                        try:
+                            selected_rows = ctx.api.selected_courses()
+                            for row in rows:
+                                row["conflicts"] = candidate_conflicts(
+                                    row.get("courseName") or "",
+                                    row.get("courseNum") or "",
+                                    row.get("teachingClassId") or row.get("clazzId") or "",
+                                    row.get("teachingTimePlace") or "",
+                                    selected_rows,
+                                )
+                        except Exception:
+                            pass
                     self._json(200, {"rows": rows})
                 except Exception as e:
                     self._json(502, {"error": str(e), "message": "课程搜索失败"})
@@ -288,6 +302,17 @@ def make_handler(ctx, host):
                     self._json(200, {"rows": rows, "summary": summary})
                 except Exception as e:
                     self._json(502, {"error": str(e), "message": "已选课程查询失败"})
+                return
+            if path == "/api/schedule":
+                if not ctx.api.cookie:
+                    self._json(409, {"error": "no_cookie", "message": "等待浏览器同步 Cookie"})
+                    return
+                try:
+                    rows = ctx.api.selected_courses()
+                    result = build_schedule(rows)
+                    self._json(200, result)
+                except Exception as e:
+                    self._json(502, {"error": str(e), "message": "课程表查询失败"})
                 return
             self._error(404, "not found")
 

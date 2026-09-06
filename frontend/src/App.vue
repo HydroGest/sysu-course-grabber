@@ -265,7 +265,16 @@
                     <td class="text-body-2">
                       {{ teacherOf(row) }}
                     </td>
-                    <td class="text-caption cell-wrap">{{ row.teachingTimePlace || '-' }}</td>
+                    <td class="text-caption cell-wrap">
+                      {{ row.teachingTimePlace || '-' }}
+                      <div
+                        v-for="conflict in (row.conflicts || [])"
+                        :key="conflict"
+                        class="conflict-line"
+                      >
+                        {{ conflict }}
+                      </div>
+                    </td>
                     <td>
                       <v-btn
                         v-if="!isCourseAdded(row)"
@@ -397,67 +406,141 @@
           <template v-else-if="view === 'selected'">
             <div class="text-h5 font-weight-bold mb-3">已选课程</div>
             <v-card class="mb-3">
-              <v-toolbar flat color="surface">
-                <v-toolbar-title class="text-subtitle-1">
-                  已选 {{ selectedRows.length }} 门 · {{ selectedSummary.credit }} 学分
-                </v-toolbar-title>
-                <v-spacer />
-                <v-btn variant="text" size="small" prepend-icon="mdi-refresh" @click="loadSelected">
-                  刷新
-                </v-btn>
-              </v-toolbar>
-              <v-card-text v-if="selectedRows.length" class="pt-2">
-                <v-chip
-                  v-for="part in categoryParts"
-                  :key="part.text"
-                  size="small"
-                  class="mr-2 mb-1"
-                  variant="tonal"
+              <v-tabs v-model="selectedTab" color="primary" grow @update:model-value="onSelectedTab">
+                <v-tab value="list">列表</v-tab>
+                <v-tab value="schedule">课程表</v-tab>
+              </v-tabs>
+
+              <template v-if="selectedTab === 'list'">
+                <v-toolbar flat color="surface">
+                  <v-toolbar-title class="text-subtitle-1">
+                    已选 {{ selectedRows.length }} 门 · {{ selectedSummary.credit }} 学分
+                  </v-toolbar-title>
+                  <v-spacer />
+                  <v-btn variant="text" size="small" prepend-icon="mdi-refresh" @click="loadSelected">
+                    刷新
+                  </v-btn>
+                </v-toolbar>
+                <v-card-text v-if="selectedRows.length" class="pt-2">
+                  <v-chip
+                    v-for="part in categoryParts"
+                    :key="part.text"
+                    size="small"
+                    class="mr-2 mb-1"
+                    variant="tonal"
+                  >
+                    {{ part.text }}
+                  </v-chip>
+                </v-card-text>
+                <v-progress-linear v-if="selectedLoading" indeterminate color="primary" />
+                <v-table v-if="selectedRows.length" density="comfortable">
+                  <thead>
+                    <tr>
+                      <th>课程号</th>
+                      <th>课程</th>
+                      <th>类别</th>
+                      <th>学分</th>
+                      <th>教学班</th>
+                      <th>时间地点</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="row in selectedRows" :key="row.teachingClassId || row.courseNum">
+                      <td class="text-body-2">{{ row.courseNum }}</td>
+                      <td>
+                        <strong>{{ row.courseName }}</strong>
+                        <div class="text-caption text-medium-emphasis">{{ row.courseUnitName || '' }}</div>
+                      </td>
+                      <td>
+                        <v-chip size="small" variant="tonal" color="secondary">
+                          {{ categoryName(row) }}
+                        </v-chip>
+                      </td>
+                      <td>{{ row.credit }}</td>
+                      <td>{{ row.teachingClassNum }}</td>
+                      <td class="text-caption cell-wrap">{{ row.teachingTimePlace || '-' }}</td>
+                    </tr>
+                  </tbody>
+                </v-table>
+                <v-card-text
+                  v-else-if="!selectedLoading && cookieOk"
+                  class="text-center text-medium-emphasis"
                 >
-                  {{ part.text }}
-                </v-chip>
-              </v-card-text>
-              <v-progress-linear v-if="selectedLoading" indeterminate color="primary" />
-              <v-table v-if="selectedRows.length" density="comfortable">
-                <thead>
-                  <tr>
-                    <th>课程号</th>
-                    <th>课程</th>
-                    <th>类别</th>
-                    <th>学分</th>
-                    <th>教学班</th>
-                    <th>时间地点</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr v-for="row in selectedRows" :key="row.teachingClassId || row.courseNum">
-                    <td class="text-body-2">{{ row.courseNum }}</td>
-                    <td>
-                      <strong>{{ row.courseName }}</strong>
-                      <div class="text-caption text-medium-emphasis">{{ row.courseUnitName || '' }}</div>
-                    </td>
-                    <td>
-                      <v-chip size="small" variant="tonal" color="secondary">
-                        {{ categoryName(row) }}
-                      </v-chip>
-                    </td>
-                    <td>{{ row.credit }}</td>
-                    <td>{{ row.teachingClassNum }}</td>
-                    <td class="text-caption cell-wrap">{{ row.teachingTimePlace || '-' }}</td>
-                  </tr>
-                </tbody>
-              </v-table>
-              <v-card-text
-                v-else-if="!selectedLoading && cookieOk"
-                class="text-center text-medium-emphasis"
-              >
-                暂无已选课程
-              </v-card-text>
-              <v-card-text v-else-if="!cookieOk" class="text-center">
-                <v-btn color="primary" prepend-icon="mdi-login-variant" @click="openGuide">
-                  去登录
-                </v-btn>
-              </v-card-text>
+                  暂无已选课程
+                </v-card-text>
+                <v-card-text v-else-if="!cookieOk" class="text-center">
+                  <v-btn color="primary" prepend-icon="mdi-login-variant" @click="openGuide">
+                    去登录
+                  </v-btn>
+                </v-card-text>
+              </template>
+
+              <template v-else>
+                <v-toolbar flat color="surface">
+                  <v-toolbar-title class="text-subtitle-1">
+                    周课程表 · {{ scheduleEvents.length }} 个上课时段
+                  </v-toolbar-title>
+                  <v-spacer />
+                  <v-btn variant="text" size="small" prepend-icon="mdi-refresh" @click="loadSchedule">
+                    刷新
+                  </v-btn>
+                </v-toolbar>
+
+                <v-alert
+                  v-if="scheduleConflicts.length"
+                  type="error"
+                  variant="tonal"
+                  class="mx-4 mt-3"
+                >
+                  <div class="font-weight-bold mb-1">时间冲突</div>
+                  <div v-for="conflict in scheduleConflicts" :key="conflict.text" class="text-body-2">
+                    {{ conflict.text }}
+                  </div>
+                </v-alert>
+
+                <v-progress-linear v-if="scheduleLoading" indeterminate color="primary" />
+                <div v-if="!cookieOk" class="text-center pa-8">
+                  <v-btn color="primary" prepend-icon="mdi-login-variant" @click="openGuide">
+                    去登录
+                  </v-btn>
+                </div>
+                <v-table
+                  v-else-if="scheduleEvents.length && !scheduleLoading"
+                  density="comfortable"
+                  class="schedule-table"
+                >
+                  <thead>
+                    <tr>
+                      <th>节次</th>
+                      <th v-for="day in weekdays" :key="day.key">{{ day.text }}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr v-for="section in 11" :key="section">
+                      <td class="text-caption text-medium-emphasis">第 {{ section }} 节</td>
+                      <td
+                        v-for="day in weekdays"
+                        :key="day.key + '-' + section"
+                        class="schedule-cell"
+                      >
+                        <div
+                          v-for="event in eventsForSlot(section, day.key)"
+                          :key="event.course_num + event.weekday_text + event.section_text"
+                          class="schedule-event"
+                          :class="{ 'schedule-event-conflict': scheduleEventsForSlot(section, day.key).length > 1 }"
+                        >
+                          <div class="font-weight-medium text-body-2">{{ event.course_name }}</div>
+                          <div class="text-caption text-medium-emphasis">{{ event.week_text }}</div>
+                          <div class="text-caption text-medium-emphasis">{{ event.place }}</div>
+                        </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </v-table>
+                <v-card-text v-else-if="!scheduleLoading" class="text-center text-medium-emphasis">
+                  暂无课程表
+                </v-card-text>
+              </template>
             </v-card>
           </template>
 
@@ -707,6 +790,10 @@ export default {
       selectedRows: [],
       selectedSummary: { course: 0, credit: 0 },
       selectedLoading: false,
+      selectedTab: "list",
+      scheduleEvents: [],
+      scheduleConflicts: [],
+      scheduleLoading: false,
       searchDone: false,
       searchLoading: false,
       searchQ: "",
@@ -806,6 +893,17 @@ export default {
         })
         .map(([name, count]) => ({ text: `${name} ${count}` }));
     },
+    weekdays() {
+      return [
+        { key: 1, text: "周一" },
+        { key: 2, text: "周二" },
+        { key: 3, text: "周三" },
+        { key: 4, text: "周四" },
+        { key: 5, text: "周五" },
+        { key: 6, text: "周六" },
+        { key: 7, text: "周日" },
+      ];
+    },
   },
   mounted() {
     this.isMobile = window.innerWidth < 900;
@@ -876,7 +974,10 @@ export default {
     },
     switchView(name) {
       this.view = name;
-      if (name === "selected" && this.cookieOk) this.loadSelected();
+      if (name === "selected" && this.cookieOk) {
+        this.loadSelected();
+        if (this.selectedTab === "schedule") this.loadSchedule();
+      }
       if (!this.isMobile) return;
       this.drawer = false;
       if (name === "search") this.$nextTick(() => this.$refs.searchInput?.focus());
@@ -929,6 +1030,34 @@ export default {
       } finally {
         this.selectedLoading = false;
       }
+    },
+    onSelectedTab(tab) {
+      if (tab === "schedule" && this.cookieOk) this.loadSchedule();
+    },
+    async loadSchedule() {
+      if (!this.cookieOk) {
+        this.scheduleEvents = [];
+        this.scheduleConflicts = [];
+        return;
+      }
+      this.scheduleLoading = true;
+      try {
+        const data = await this.api("/api/schedule");
+        this.scheduleEvents = data.events || [];
+        this.scheduleConflicts = data.conflicts || [];
+      } catch (e) {
+        this.toast("课程表刷新失败：" + e.message, "error");
+      } finally {
+        this.scheduleLoading = false;
+      }
+    },
+    eventsForSlot(day, section) {
+      return this.scheduleEvents.filter(
+        (event) => event.weekday === day && event.start_section === section
+      );
+    },
+    scheduleEventsForSlot(day, section) {
+      return this.eventsForSlot(day, section);
     },
     statusText(status) {
       return statusLabels[status] || status || "-";
@@ -1268,6 +1397,30 @@ export default {
   max-width: 340px;
   white-space: normal;
   line-height: 1.45;
+}
+.schedule-table :deep(td) {
+  min-width: 92px;
+  vertical-align: top;
+  height: 56px;
+}
+.schedule-cell {
+  padding: 4px;
+}
+.schedule-event {
+  background: rgb(var(--v-theme-primary), 0.08);
+  border-left: 3px solid rgb(var(--v-theme-primary));
+  border-radius: 6px;
+  padding: 6px 8px;
+  margin-bottom: 4px;
+}
+.schedule-event-conflict {
+  background: rgb(var(--v-theme-error), 0.1);
+  border-left-color: rgb(var(--v-theme-error));
+}
+.conflict-line {
+  color: rgb(var(--v-theme-error));
+  font-weight: 600;
+  margin-top: 4px;
 }
 .actions-cell {
   white-space: nowrap;
